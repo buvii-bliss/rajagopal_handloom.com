@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    background: #faf7f2;
+    font-family: Inter, sans-serif;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+@keyframes cartMove {
+    0% {
+        left: -30px;
+        opacity: 0;
+    }
+
+    8% {
+        opacity: 1;
+    }
+
+    92% {
+        opacity: 1;
+    }
+
+    100% {
+        left: calc(100% + 30px);
+        opacity: 0;
+    }
+}
+
+@keyframes cartText {
+    0% {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.animate-cart-move {
+    animation: cartMove 1.2s linear forwards;
+}
+
+.animate-cart-text {
+    animation: cartText 0.35s ease-out 1.2s both;
+}
