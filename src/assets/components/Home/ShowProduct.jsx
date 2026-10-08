@@ -31,7 +31,6 @@ function ShowProduct({
 
         return matchesCategory && matchesSearch;
     });
-
     const handleBuyNow = (product) => {
         navigate("/checkout", {
             state: {
