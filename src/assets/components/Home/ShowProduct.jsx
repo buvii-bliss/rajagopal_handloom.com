@@ -66,19 +66,12 @@ function ShowProduct({
                         )}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => {
-                            navigate("/");
-                            window.scrollTo({
-                                top: 0,
-                                behavior: "smooth",
-                            });
-                        }}
-                        className="text-xs font-semibold text-[#650b13] sm:text-sm"
-                    >
-                        View All →
-                    </button>
+                   <Link
+                              to="/menu"
+                              className="text-xs font-semibold text-[#650b13] sm:text-sm"
+                            >
+                              View All →
+                            </Link>
                 </div>
 
                 {filteredProducts.length > 0 && (

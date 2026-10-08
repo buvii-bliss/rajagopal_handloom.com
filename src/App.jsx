@@ -9,11 +9,17 @@ import Search from "./assets/components/Search";
 import Navbar from "./assets/components/Navbar";
 import BottomBar from "./assets/components/BottomBar";
 import ScrollToTop from "./assets/components/ScrollToTop";
+import Wishlist from "./pages/Wishlist";
 
+import Checkout from "./pages/Checkout";
 import Home from "./pages/Home";
+import Menu from "./pages/Menu";
+import MyOrder from "./pages/MyOrder";
+import Cart from "./pages/Cart";
 import ProductDetails from "./assets/components/ProductDetails";
 
 function App() {
+    const [orders, setOrders] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [wishlist, setWishlist] = useState([]);
@@ -41,16 +47,18 @@ function App() {
     // ================= CART =================
     const addToCart = (product) => {
         setCart((previous) => {
-            const exists = previous.some(
-                (item) => item.id === product.id
-            );
+            const exists = previous.some((item) => item.id === product.id);
 
-            if (exists) {
-                return previous;
-            }
-
-            return [...previous, product];
+            return exists
+                ? previous.map((item) =>
+                      item.id === product.id
+                          ? { ...item, quantity: (item.quantity || 1) + 1 }
+                          : item
+                  )
+                : [...previous, { ...product, quantity: 1 }];
         });
+
+        return true;
     };
 
     // ================= LOGIN =================
@@ -86,7 +94,10 @@ function App() {
             <div className="min-h-screen bg-[#fffaf2] pb-16 md:pb-0">
                 <Navbar
                     wishlistCount={wishlist.length}
-                    cartCount={cart.length}
+                    cartCount={cart.reduce(
+                        (count, item) => count + (item.quantity || 1),
+                        0
+                    )}
                     searchQuery={searchQuery}
                     onSearch={setSearchQuery}
                     setSelectedCategory={setSelectedCategory}
@@ -132,11 +143,43 @@ function App() {
                             <Search onSearch={setSearchQuery} />
                         }
                     />
+                    <Route
+  path="/wishlist"
+  element={
+    <Wishlist
+      wishlist={wishlist}
+      toggleWishlist={toggleWishlist}
+      addToCart={addToCart}
+    />
+  }
+/>
+<Route
+  path="/cart"
+  element={<Cart cart={cart} setCart={setCart} />}
+/>
+<Route
+  path="/my-orders"
+  element={<MyOrder orders={orders} />}
+/>
+<Route
+  path="/menu"
+  element={
+    <Menu
+      wishlist={wishlist}
+      toggleWishlist={toggleWishlist}
+      addToCart={addToCart}
+    />
+  }
+/>
+<Route path="/checkout" element={<Checkout />} />
                 </Routes>
 
                 <BottomBar
                     wishlistCount={wishlist.length}
-                    cartCount={cart.length}
+                    cartCount={cart.reduce(
+                        (count, item) => count + (item.quantity || 1),
+                        0
+                    )}
                 />
             </div>
         </BrowserRouter>
