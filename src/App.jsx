@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-
 import {
     BrowserRouter,
     Routes,
     Route,
 } from "react-router-dom";
 
-import Search from "./assets/components/search";
+import Search from "./assets/components/Search";
 import Navbar from "./assets/components/Navbar";
 import BottomBar from "./assets/components/BottomBar";
 import ScrollToTop from "./assets/components/ScrollToTop";
