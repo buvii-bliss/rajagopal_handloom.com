@@ -1,9 +1,8 @@
 
-import React, { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 
 import products from "../Data/Product";
-import ProductReviews from "./Product/ProductReviews";
 import SimilarProducts from "./Product/SimilarProducts";
 
 const GOLD = "#b58a3a";
@@ -30,10 +29,6 @@ const getCategoryType = (category = "", name = "") => {
         return "free";
     }
 
-    if (/kurti|kurta|shirt|blouse|top|dress|salwar|churidar|legging|trouser|pant|tunic/.test(value)) {
-        return "sized";
-    }
-
     return "sized";
 };
 
@@ -43,9 +38,6 @@ const getSizes = (product) => {
     }
 
     const defaultSizes = ["S", "M", "L", "XL", "XXL"];
-
-    // Supports either ["S", "M", "L"] or
-    // [{ name: "S", available: true }, ...]
     const source = product.sizes || product.availableSizes;
 
     if (!Array.isArray(source) || source.length === 0) {
@@ -55,16 +47,18 @@ const getSizes = (product) => {
         }));
     }
 
-    return source.map((item) => {
-        if (typeof item === "string") {
-            return { name: item, available: true };
-        }
+    return source
+        .map((item) => {
+            if (typeof item === "string") {
+                return { name: item, available: true };
+            }
 
-        return {
-            name: item.name || item.size,
-            available: item.available ?? item.inStock ?? true,
-        };
-    }).filter((item) => item.name);
+            return {
+                name: item.name || item.size,
+                available: item.available ?? item.inStock ?? true,
+            };
+        })
+        .filter((item) => item.name);
 };
 
 const getMedia = (product, variant) => {
@@ -79,9 +73,11 @@ const getMedia = (product, variant) => {
         ...(variant?.video ? [variant.video] : []),
     ];
 
-    const normalizedVideos = videos.map((item) =>
-        typeof item === "string" ? item : item.url || item.src
-    ).filter(Boolean);
+    const normalizedVideos = videos
+        .map((item) =>
+            typeof item === "string" ? item : item.url || item.src
+        )
+        .filter(Boolean);
 
     return [
         ...images.map((src) => ({ type: "image", src })),
@@ -89,21 +85,34 @@ const getMedia = (product, variant) => {
     ];
 };
 
-function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
+function ProductDetails({
+    addToCart,
+    wishlist = [],
+    toggleWishlist,
+}) {
     const { id } = useParams();
+    const navigate = useNavigate();
 
-    const product = products.find((item) => String(item.id) === String(id));
+    const product = products.find(
+        (item) => String(item.id) === String(id)
+    );
+
+    const isFreeSize =
+        product &&
+        getCategoryType(product.category, product.name) === "free";
 
     const variants = useMemo(() => {
         if (!product) return [];
 
         return product.variants?.length
             ? product.variants
-            : [{
-                id: "default",
-                name: "Default",
-                images: [product.image].filter(Boolean),
-            }];
+            : [
+                  {
+                      id: "default",
+                      name: "Default",
+                      images: [product.image].filter(Boolean),
+                  },
+              ];
     }, [product]);
 
     const [variantIndex, setVariantIndex] = useState(0);
@@ -112,6 +121,25 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
     const [quantity, setQuantity] = useState(1);
     const [showSizeChart, setShowSizeChart] = useState(false);
     const [notice, setNotice] = useState("");
+
+    // Automatically select Free Size and reset size when product changes.
+    useEffect(() => {
+        if (!product) {
+            setSelectedSize("");
+            return;
+        }
+
+        if (getCategoryType(product.category, product.name) === "free") {
+            setSelectedSize("Free Size");
+        } else {
+            setSelectedSize("");
+        }
+
+        setVariantIndex(0);
+        setActiveMediaIndex(0);
+        setQuantity(1);
+        setNotice("");
+    }, [product]);
 
     if (!product) {
         return (
@@ -136,29 +164,42 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
     const activeMedia = media[activeMediaIndex] || media[0];
 
     const sizes = getSizes(product);
-    const isFreeSize = getCategoryType(product.category, product.name) === "free";
 
-    const selectedSizeData = sizes.find((size) => size.name === selectedSize);
+    // Free Size is always the effective selection for free-size products.
+    const effectiveSelectedSize = isFreeSize
+        ? "Free Size"
+        : selectedSize;
+
+    const selectedSizeData = sizes.find(
+        (size) => size.name === effectiveSelectedSize
+    );
+
     const isSizeAvailable = selectedSizeData?.available ?? false;
 
-    // Product.js price is treated as the original price.
-    const originalPrice = Number(product.originalPrice ?? product.price ?? 0);
+    const originalPrice = Number(
+        product.originalPrice ?? product.price ?? 0
+    );
 
-    const currentTier = [...bulkTiers]
-        .reverse()
-        .find((tier) => quantity >= tier.min) || bulkTiers[0];
+    const currentTier =
+        [...bulkTiers]
+            .reverse()
+            .find((tier) => quantity >= tier.min) || bulkTiers[0];
 
     const discountedPrice = Math.round(
         originalPrice * (1 - currentTier.discount / 100)
     );
 
     const totalPrice = discountedPrice * quantity;
-    const totalSavings = (originalPrice - discountedPrice) * quantity;
+    const totalSavings =
+        (originalPrice - discountedPrice) * quantity;
 
     const isWishlisted = Array.isArray(wishlist)
-        ? wishlist.some((item) =>
-            String(typeof item === "object" ? item.id : item) === String(product.id)
-        )
+        ? wishlist.some(
+              (item) =>
+                  String(
+                      typeof item === "object" ? item.id : item
+                  ) === String(product.id)
+          )
         : false;
 
     const chooseVariant = (index) => {
@@ -168,44 +209,97 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
     };
 
     const updateQuantity = (value) => {
+        if (value === "") {
+            setQuantity("");
+            setNotice("");
+            return;
+        }
+
         const parsed = Number(value);
+
         if (!Number.isFinite(parsed)) return;
 
-        setQuantity(Math.max(1, Math.min(10000, Math.floor(parsed))));
+        setQuantity(
+            Math.max(1, Math.min(10000, Math.floor(parsed)))
+        );
+
+        setNotice("");
     };
 
-    const handleOrder = (isBulk = false) => {
-        if (!selectedSize || !isSizeAvailable) {
+    // Reset to one piece at the regular price.
+    const buySinglePiece = () => {
+        setQuantity(1);
+        setNotice("Quantity reset to 1 piece. Regular price applied.");
+    };
+
+    const handleOrder = (buyNow = false) => {
+        // Do not require manual size selection for Free Size products.
+        if (
+            (!isFreeSize && !selectedSize) ||
+            !isSizeAvailable
+        ) {
             setNotice("Please select an available size.");
             return;
         }
 
-        if (isBulk && quantity < 100) {
-            setQuantity(100);
-            setNotice("Bulk pricing starts at 100 pieces. Review the updated total and click Bulk Order again.");
-            return;
-        }
+        // Prevent an empty quantity from being used in checkout.
+        const finalQuantity = Math.max(
+            1,
+            Math.min(10000, Number(quantity) || 1)
+        );
+
+        const finalTier =
+            [...bulkTiers]
+                .reverse()
+                .find((tier) => finalQuantity >= tier.min) ||
+            bulkTiers[0];
+
+        const finalUnitPrice = Math.round(
+            originalPrice * (1 - finalTier.discount / 100)
+        );
+
+        const finalTotalPrice = finalUnitPrice * finalQuantity;
 
         const selectedProduct = {
             ...product,
             selectedVariant: activeVariant,
             selectedColor: activeVariant?.name || "Default",
-            selectedImage: activeMedia?.type === "image"
-                ? activeMedia.src
-                : activeVariant?.images?.[0] || activeVariant?.image || product.image,
-            selectedSize,
-            quantity,
+            selectedImage:
+                activeMedia?.type === "image"
+                    ? activeMedia.src
+                    : activeVariant?.images?.[0] ||
+                      activeVariant?.image ||
+                      product.image,
+            selectedSize: effectiveSelectedSize,
+            quantity: finalQuantity,
             originalPrice,
-            price: discountedPrice,
-            unitPrice: discountedPrice,
-            discount: currentTier.discount,
-            totalPrice,
-            isBulkOrder: isBulk || quantity >= 100,
+            price: finalUnitPrice,
+            unitPrice: finalUnitPrice,
+            discount: finalTier.discount,
+            totalPrice: finalTotalPrice,
+            isBulkOrder: finalQuantity >= 100,
         };
+
+        if (buyNow) {
+            navigate("/checkout", {
+                state: {
+                    product: selectedProduct,
+                    quantity: finalQuantity,
+                    buyNow: true,
+                },
+            });
+
+            return;
+        }
 
         if (typeof addToCart === "function") {
             addToCart(selectedProduct);
-            setNotice("Product added to cart.");
+
+            setNotice(
+                `${finalQuantity} ${
+                    finalQuantity === 1 ? "piece" : "pieces"
+                } added to cart.`
+            );
         } else {
             setNotice("Cart action is not connected yet.");
         }
@@ -214,6 +308,8 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
     const handleWishlist = () => {
         if (typeof toggleWishlist === "function") {
             toggleWishlist(product);
+        } else {
+            setNotice("Wishlist action is not connected yet.");
         }
     };
 
@@ -222,28 +318,37 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
             <div className="mx-auto max-w-7xl">
                 {/* Breadcrumb */}
                 <nav className="mb-3 flex items-center gap-2 overflow-hidden whitespace-nowrap text-xs text-gray-500">
-                    <Link to="/" className="shrink-0 font-medium text-[#650b13] hover:underline">
+                    <Link
+                        to="/"
+                        className="shrink-0 font-medium text-[#650b13] hover:underline"
+                    >
                         Home
                     </Link>
                     <span>/</span>
                     <span className="shrink-0">{product.category}</span>
                     <span>/</span>
-                    <span className="truncate text-gray-600">{product.name}</span>
+                    <span className="truncate text-gray-600">
+                        {product.name}
+                    </span>
                 </nav>
 
-                {/* Main product area */}
                 <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-8">
-                    {/* Gallery */}
+                    {/* Product gallery */}
                     <section className="min-w-0">
                         <div className="grid grid-cols-[62px_minmax(0,1fr)] gap-3 sm:grid-cols-[76px_minmax(0,1fr)]">
-                            {/* Image and video thumbnails */}
                             <div className="flex max-h-[430px] flex-col gap-2 overflow-y-auto pr-1">
                                 {media.map((item, index) => (
                                     <button
                                         key={`${item.type}-${item.src}-${index}`}
                                         type="button"
-                                        onClick={() => setActiveMediaIndex(index)}
-                                        aria-label={item.type === "video" ? "Play product video" : `View product image ${index + 1}`}
+                                        onClick={() =>
+                                            setActiveMediaIndex(index)
+                                        }
+                                        aria-label={
+                                            item.type === "video"
+                                                ? "Play product video"
+                                                : `View product image ${index + 1}`
+                                        }
                                         className={`relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-lg border-2 bg-white ${
                                             activeMediaIndex === index
                                                 ? "border-[#b58a3a]"
@@ -265,7 +370,7 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                                     preload="metadata"
                                                     className="h-full w-full object-cover opacity-70"
                                                 />
-                                                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-sm text-[#650b13]">
+                                                <span className="absolute rounded-full bg-white/90 px-2 py-1 text-sm text-[#650b13]">
                                                     ▶
                                                 </span>
                                                 <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 text-[9px] text-white">
@@ -277,7 +382,6 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                 ))}
                             </div>
 
-                            {/* Main image/video */}
                             <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-xl border border-[#eadfce] bg-white sm:min-h-[400px] lg:h-[min(66vh,580px)] lg:min-h-[420px]">
                                 {activeMedia ? (
                                     activeMedia.type === "video" ? (
@@ -306,7 +410,9 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                     onClick={handleWishlist}
                                     aria-label="Toggle wishlist"
                                     className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border bg-white text-xl shadow-sm ${
-                                        isWishlisted ? "text-red-600" : "text-gray-500"
+                                        isWishlisted
+                                            ? "text-red-600"
+                                            : "text-gray-500"
                                     }`}
                                 >
                                     {isWishlisted ? "♥" : "♡"}
@@ -321,6 +427,7 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                             <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9a7534]">
                                 {product.category}
                             </p>
+
                             <h1 className="text-xl font-bold leading-snug text-[#42070c] sm:text-2xl">
                                 {product.name}
                             </h1>
@@ -330,43 +437,76 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                     <span className="font-semibold text-[#987027]">
                                         ★ {product.rating}
                                     </span>
-                                    {product.reviews ? ` · ${product.reviews} reviews` : ""}
+                                    {product.reviews
+                                        ? ` · ${product.reviews} reviews`
+                                        : ""}
                                 </p>
                             )}
                         </div>
 
-                        {/* Price and bulk discount */}
+                        {/* Pricing and bulk discounts */}
                         <div className="rounded-xl border border-[#ead9b9] bg-white p-3">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-2xl font-bold text-[#650b13]">
                                     {formatPrice(discountedPrice)}
                                 </span>
+
                                 {currentTier.discount > 0 && (
                                     <>
                                         <span className="text-sm text-gray-400 line-through">
                                             {formatPrice(originalPrice)}
                                         </span>
+
                                         <span className="rounded bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">
                                             {currentTier.discount}% OFF
                                         </span>
                                     </>
                                 )}
+
                                 {currentTier.discount === 0 && (
-                                    <span className="text-xs text-gray-500">Per piece</span>
+                                    <span className="text-xs text-gray-500">
+                                        Per piece
+                                    </span>
                                 )}
                             </div>
+
                             <p className="mt-1 text-[11px] text-gray-500">
                                 {currentTier.discount > 0
-                                    ? `You save ${formatPrice(originalPrice - discountedPrice)} per piece`
+                                    ? `You save ${formatPrice(
+                                          originalPrice - discountedPrice
+                                      )} per piece`
                                     : "Bulk discounts apply automatically from 100 pieces."}
                             </p>
 
-                            <div className="mt-3 grid grid-cols-3 gap-2">
+                            {/* Quick quantity options */}
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <button
+                                    type="button"
+                                    onClick={buySinglePiece}
+                                    className={`rounded-lg border p-2 text-left transition ${
+                                        quantity === 1
+                                            ? "border-[#650b13] bg-[#650b13] text-white"
+                                            : "border-[#eadfce] bg-[#fffaf2] text-[#52080f] hover:border-[#b58a3a]"
+                                    }`}
+                                >
+                                    <span className="block text-[10px] font-semibold">
+                                        Buy 1 Piece
+                                    </span>
+                                    <span className="mt-1 block text-sm font-bold">
+                                        {formatPrice(originalPrice)}
+                                    </span>
+                                </button>
+
                                 {bulkTiers.slice(1).map((tier) => (
                                     <button
                                         key={tier.min}
                                         type="button"
-                                        onClick={() => updateQuantity(tier.min)}
+                                        onClick={() => {
+                                            updateQuantity(tier.min);
+                                            setNotice(
+                                                `Quantity set to ${tier.min} pieces. You can change it below.`
+                                            );
+                                        }}
                                         className={`rounded-lg border p-2 text-left transition ${
                                             currentTier.min === tier.min
                                                 ? "border-[#650b13] bg-[#650b13] text-white"
@@ -389,8 +529,12 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                             <div>
                                 <div className="mb-2 flex items-center justify-between">
                                     <p className="text-xs font-bold text-[#42070c]">
-                                        Color: <span className="font-normal">{activeVariant?.name}</span>
+                                        Color:{" "}
+                                        <span className="font-normal">
+                                            {activeVariant?.name}
+                                        </span>
                                     </p>
+
                                     <span className="text-[10px] text-gray-500">
                                         {variants.length} options
                                     </span>
@@ -399,7 +543,11 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                 <div className="flex flex-wrap gap-2">
                                     {variants.map((variant, index) => (
                                         <button
-                                            key={variant.id ?? variant.name ?? index}
+                                            key={
+                                                variant.id ??
+                                                variant.name ??
+                                                index
+                                            }
                                             type="button"
                                             onClick={() => chooseVariant(index)}
                                             title={variant.name}
@@ -409,14 +557,20 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                                     : "border-[#e4d5c2] bg-white text-gray-700"
                                             }`}
                                         >
-                                            {(variant.images?.[0] || variant.image) && (
+                                            {(variant.images?.[0] ||
+                                                variant.image) && (
                                                 <img
-                                                    src={variant.images?.[0] || variant.image}
+                                                    src={
+                                                        variant.images?.[0] ||
+                                                        variant.image
+                                                    }
                                                     alt=""
                                                     className="h-6 w-6 rounded-full border border-[#eadfce] object-cover"
                                                 />
                                             )}
-                                            {variant.name || `Color ${index + 1}`}
+
+                                            {variant.name ||
+                                                `Color ${index + 1}`}
                                         </button>
                                     ))}
                                 </div>
@@ -429,6 +583,7 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                 <p className="text-xs font-bold text-[#42070c]">
                                     {isFreeSize ? "Size" : "Select Size"}
                                 </p>
+
                                 {!isFreeSize && (
                                     <button
                                         type="button"
@@ -443,6 +598,8 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                             <div className="flex flex-wrap gap-2">
                                 {sizes.map((size) => {
                                     const unavailable = !size.available;
+                                    const isSelected =
+                                        effectiveSelectedSize === size.name;
 
                                     return (
                                         <button
@@ -456,65 +613,87 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                             className={`relative min-w-12 rounded-lg border px-3 py-2 text-xs font-semibold ${
                                                 unavailable
                                                     ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300 line-through"
-                                                    : selectedSize === size.name
-                                                        ? "border-[#650b13] bg-[#650b13] text-white"
-                                                        : "border-[#e4d5c2] bg-white text-[#52080f] hover:border-[#b58a3a]"
+                                                    : isSelected
+                                                      ? "border-[#650b13] bg-[#650b13] text-white"
+                                                      : "border-[#e4d5c2] bg-white text-[#52080f] hover:border-[#b58a3a]"
                                             }`}
                                         >
                                             {size.name}
-                                            {unavailable && (
-                                                <span className="sr-only">Unavailable</span>
-                                            )}
                                         </button>
                                     );
                                 })}
                             </div>
-                            {!selectedSize && (
+
+                            {!isFreeSize && !selectedSize && (
                                 <p className="mt-1 text-[10px] text-gray-500">
                                     Please choose a size to continue.
                                 </p>
                             )}
                         </div>
 
-                        {/* Quantity and total */}
+                        {/* Quantity control */}
                         <div className="rounded-xl border border-[#eadfce] bg-white p-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-bold text-[#42070c]">
                                         Order quantity
                                     </p>
+
                                     <p className="mt-1 text-[10px] text-gray-500">
                                         {quantity >= 300
-                                            ? "Highest bulk discount applied"
+                                            ? "30% bulk discount applied"
                                             : quantity >= 200
-                                                ? "200+ pieces discount applied"
-                                                : quantity >= 100
-                                                    ? "100+ pieces discount applied"
-                                                    : "Bulk discounts start at 100 pieces"}
+                                              ? "25% bulk discount applied"
+                                              : quantity >= 100
+                                                ? "20% bulk discount applied"
+                                                : "Bulk discounts start at 100 pieces"}
                                     </p>
                                 </div>
 
                                 <div className="flex items-center overflow-hidden rounded-lg border border-[#e4d5c2]">
                                     <button
                                         type="button"
-                                        onClick={() => updateQuantity(quantity - 1)}
+                                        onClick={() =>
+                                            updateQuantity(
+                                                Math.max(
+                                                    1,
+                                                    (Number(quantity) || 1) - 1
+                                                )
+                                            )
+                                        }
                                         className="h-9 w-9 text-lg text-[#650b13] hover:bg-[#fff5e6]"
                                         aria-label="Decrease quantity"
                                     >
                                         −
                                     </button>
+
                                     <input
                                         type="number"
                                         min="1"
                                         max="10000"
                                         value={quantity}
-                                        onChange={(event) => updateQuantity(event.target.value)}
+                                        onChange={(event) =>
+                                            updateQuantity(event.target.value)
+                                        }
+                                        onBlur={() => {
+                                            if (
+                                                !quantity ||
+                                                Number(quantity) < 1
+                                            ) {
+                                                setQuantity(1);
+                                            }
+                                        }}
                                         className="h-9 w-16 border-x border-[#e4d5c2] text-center text-sm font-semibold outline-none"
                                         aria-label="Order quantity"
                                     />
+
                                     <button
                                         type="button"
-                                        onClick={() => updateQuantity(quantity + 1)}
+                                        onClick={() =>
+                                            updateQuantity(
+                                                (Number(quantity) || 1) + 1
+                                            )
+                                        }
                                         className="h-9 w-9 text-lg text-[#650b13] hover:bg-[#fff5e6]"
                                         aria-label="Increase quantity"
                                     >
@@ -526,24 +705,45 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                             <div className="mt-3 flex items-end justify-between border-t border-dashed border-[#e4d5c2] pt-3">
                                 <div>
                                     <p className="text-[11px] text-gray-500">
-                                        Total for {quantity} {quantity === 1 ? "piece" : "pieces"}
+                                        Total for {Number(quantity) || 1}{" "}
+                                        {(Number(quantity) || 1) === 1
+                                            ? "piece"
+                                            : "pieces"}
                                     </p>
+
                                     <p className="text-xl font-bold text-[#650b13]">
-                                        {formatPrice(totalPrice)}
+                                        {formatPrice(
+                                            discountedPrice *
+                                                (Number(quantity) || 1)
+                                        )}
                                     </p>
                                 </div>
+
                                 {totalSavings > 0 && (
                                     <div className="text-right">
-                                        <p className="text-[10px] text-gray-500">Total savings</p>
+                                        <p className="text-[10px] text-gray-500">
+                                            Total savings
+                                        </p>
+
                                         <p className="text-sm font-bold text-green-700">
                                             {formatPrice(totalSavings)}
                                         </p>
                                     </div>
                                 )}
                             </div>
+
+                            {quantity >= 100 && (
+                                <button
+                                    type="button"
+                                    onClick={buySinglePiece}
+                                    className="mt-3 w-full rounded-lg border border-[#b58a3a] bg-[#fffaf2] px-3 py-2 text-xs font-bold text-[#650b13] transition hover:bg-[#f5ead7]"
+                                >
+                                    Want only 1 piece? Reset to single-piece price
+                                </button>
+                            )}
                         </div>
 
-                        {/* Order actions */}
+                        {/* Actions */}
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
@@ -558,7 +758,7 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                 onClick={() => handleOrder(true)}
                                 className="rounded-lg bg-[#650b13] px-3 py-3 text-xs font-bold text-white transition hover:bg-[#4c070d] sm:text-sm"
                             >
-                                Bulk Order
+                                Buy Now
                             </button>
                         </div>
 
@@ -574,24 +774,27 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                         <div className="grid grid-cols-3 gap-2 border-t border-[#e8dccb] pt-3 text-center">
                             <div>
                                 <span className="text-sm">✓</span>
-                                <p className="mt-1 text-[10px] text-gray-600">Quality checked</p>
+                                <p className="mt-1 text-[10px] text-gray-600">
+                                    Quality checked
+                                </p>
                             </div>
+
                             <div>
                                 <span className="text-sm">↺</span>
-                                <p className="mt-1 text-[10px] text-gray-600">Easy support</p>
+                                <p className="mt-1 text-[10px] text-gray-600">
+                                    Easy support
+                                </p>
                             </div>
+
                             <div>
                                 <span className="text-sm">◆</span>
-                                <p className="mt-1 text-[10px] text-gray-600">Secure checkout</p>
+                                <p className="mt-1 text-[10px] text-gray-600">
+                                    Secure checkout
+                                </p>
                             </div>
                         </div>
                     </section>
                 </div>
-
-                {/* Reviews */}
-                {/* <div className="mt-6 border-t border-[#e5d7c5] pt-5">
-                    <ProductReviews product={product} />
-                </div> */}
 
                 {/* Similar products */}
                 <div className="mt-6 border-t border-[#e5d7c5] pt-5">
@@ -617,10 +820,15 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#9a7534]">
                                     Fit guide
                                 </p>
-                                <h2 id="size-chart-title" className="text-xl font-bold text-[#52080f]">
+
+                                <h2
+                                    id="size-chart-title"
+                                    className="text-xl font-bold text-[#52080f]"
+                                >
                                     Size Chart
                                 </h2>
                             </div>
+
                             <button
                                 type="button"
                                 onClick={() => setShowSizeChart(false)}
@@ -632,7 +840,8 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                         </div>
 
                         <p className="mb-3 text-xs leading-5 text-gray-600">
-                            Approximate body measurements in inches. Actual sizing may vary by brand and product.
+                            Approximate body measurements in inches. Actual
+                            sizing may vary by brand and product.
                         </p>
 
                         <div className="overflow-x-auto rounded-lg border border-[#eadfce] bg-white">
@@ -645,6 +854,7 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                         <th className="p-3">Hip</th>
                                     </tr>
                                 </thead>
+
                                 <tbody className="text-gray-700">
                                     {[
                                         ["S", "34–36", "28–30", "36–38"],
@@ -653,9 +863,14 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                                         ["XL", "40–42", "34–36", "42–44"],
                                         ["XXL", "42–44", "36–38", "44–46"],
                                     ].map((row) => (
-                                        <tr key={row[0]} className="border-t border-[#f0e7db]">
+                                        <tr
+                                            key={row[0]}
+                                            className="border-t border-[#f0e7db]"
+                                        >
                                             {row.map((value) => (
-                                                <td key={value} className="p-3">{value}</td>
+                                                <td key={value} className="p-3">
+                                                    {value}
+                                                </td>
                                             ))}
                                         </tr>
                                     ))}
@@ -664,7 +879,10 @@ function ProductDetails({ addToCart, wishlist = [], toggleWishlist }) {
                         </div>
 
                         <div className="mt-4 rounded-lg bg-[#f4e9d7] p-3 text-xs leading-5 text-[#52080f]">
-                            <strong>How to measure:</strong> Measure around the fullest part of the bust/chest, natural waist, and hips. Choose the size that best matches the product's own size guide.
+                            <strong>How to measure:</strong> Measure around
+                            the fullest part of the bust/chest, natural waist,
+                            and hips. Choose the size that best matches the
+                            product's own size guide.
                         </div>
 
                         <button
