@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search as SearchIcon } from "lucide-react";
+import { Search as SearchIcon, X } from "lucide-react";
 
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
@@ -40,13 +41,11 @@ const Navbar = ({
         "Offers",
     ];
 
-    // Read wishlist and cart data from localStorage.
     const refreshCounts = useCallback(() => {
         try {
             const wishlist = JSON.parse(
                 localStorage.getItem("wishlist") || "[]"
             );
-
             const cart = JSON.parse(
                 localStorage.getItem("cart") || "[]"
             );
@@ -59,7 +58,11 @@ const Navbar = ({
                 Array.isArray(cart)
                     ? cart.reduce(
                           (total, item) =>
-                              total + Math.max(0, Number(item.quantity) || 1),
+                              total +
+                              Math.max(
+                                  0,
+                                  Number(item.quantity) || 1
+                              ),
                           0
                       )
                     : 0
@@ -71,7 +74,6 @@ const Navbar = ({
         }
     }, []);
 
-    // Use passed counts when provided; otherwise use localStorage counts.
     const wishlistCount =
         propWishlistCount !== undefined
             ? propWishlistCount
@@ -85,19 +87,18 @@ const Navbar = ({
     useEffect(() => {
         refreshCounts();
 
-        const handleWishlistUpdate = () => refreshCounts();
-        const handleCartUpdate = () => refreshCounts();
+        const handleUpdate = () => refreshCounts();
 
-        window.addEventListener("wishlistUpdated", handleWishlistUpdate);
-        window.addEventListener("cartUpdated", handleCartUpdate);
-        window.addEventListener("storage", handleWishlistUpdate);
-        window.addEventListener("focus", handleWishlistUpdate);
+        window.addEventListener("wishlistUpdated", handleUpdate);
+        window.addEventListener("cartUpdated", handleUpdate);
+        window.addEventListener("storage", handleUpdate);
+        window.addEventListener("focus", handleUpdate);
 
         return () => {
-            window.removeEventListener("wishlistUpdated", handleWishlistUpdate);
-            window.removeEventListener("cartUpdated", handleCartUpdate);
-            window.removeEventListener("storage", handleWishlistUpdate);
-            window.removeEventListener("focus", handleWishlistUpdate);
+            window.removeEventListener("wishlistUpdated", handleUpdate);
+            window.removeEventListener("cartUpdated", handleUpdate);
+            window.removeEventListener("storage", handleUpdate);
+            window.removeEventListener("focus", handleUpdate);
         };
     }, [refreshCounts]);
 
@@ -105,34 +106,40 @@ const Navbar = ({
         setSearchText(searchQuery);
     }, [searchQuery]);
 
-    // Wishlist animation
     useEffect(() => {
         if (!wishlistCount) return;
 
         setWishlistAnimate(true);
-
         const timer = setTimeout(() => setWishlistAnimate(false), 500);
+
         return () => clearTimeout(timer);
     }, [wishlistCount]);
 
-    // Cart animation
     useEffect(() => {
         if (!cartCount) return;
 
         setCartAnimate(true);
-
         const timer = setTimeout(() => setCartAnimate(false), 500);
+
         return () => clearTimeout(timer);
     }, [cartCount]);
+
+    // Close the mobile menu when the screen becomes desktop-sized.
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setMobileMenuOpen(false);
+            }
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const navigateTo = (path) => {
         setMobileMenuOpen(false);
         navigate(path);
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const scrollToProducts = () => {
@@ -149,7 +156,10 @@ const Navbar = ({
                 section.getBoundingClientRect().top + window.pageYOffset;
 
             window.scrollTo({
-                top: Math.max(sectionPosition - navbarHeight - 20, 0),
+                top: Math.max(
+                    sectionPosition - navbarHeight - 20,
+                    0
+                ),
                 behavior: "smooth",
             });
         }, 100);
@@ -163,12 +173,10 @@ const Navbar = ({
 
         if (window.location.pathname !== "/") {
             navigate("/");
-
             setTimeout(() => {
                 setSelectedCategory?.(category);
                 scrollToProducts();
             }, 300);
-
             return;
         }
 
@@ -202,6 +210,7 @@ const Navbar = ({
     };
 
     const openRegister = () => {
+        setMobileMenuOpen(false);
         setLoginModalOpen(false);
         setRegisterModalOpen(true);
     };
@@ -270,8 +279,8 @@ const Navbar = ({
 
             {wishlistCount > 0 && (
                 <span
-                    className={`absolute -right-2 -top-2 flex min-w-4 items-center justify-center rounded-full bg-[#E7C15F] px-1 font-bold text-[#50070D] ${
-                        mobile ? "h-4 text-[9px]" : "h-4 text-[9px]"
+                    className={`absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E7C15F] px-1 text-[9px] font-bold text-[#50070D] ${
+                        mobile ? "" : ""
                     }`}
                 >
                     {wishlistCount}
@@ -308,13 +317,18 @@ const Navbar = ({
         </div>
     );
 
+    const basicLinks = [
+        { label: "Home", action: goHome },
+        { label: "My Orders", action: () => navigateTo("/my-orders") },
+        { label: "Contact Us", action: () => navigateTo("/contact") },
+    ];
+
     return (
         <>
             <header id="main-navbar" className="sticky top-0 z-50 w-full">
                 {/* Top bar */}
                 <div className="border-b border-[#793037] bg-[#50070D] text-white">
                     <div className="mx-auto flex min-h-[70px] max-w-[1600px] items-center gap-2 px-3 sm:gap-4 sm:px-5 lg:h-[82px] lg:px-8">
-                        {/* Logo */}
                         <button
                             type="button"
                             onClick={goHome}
@@ -344,7 +358,6 @@ const Navbar = ({
                                     aria-label="Search products"
                                     className="min-w-0 flex-1 px-5 text-sm text-gray-700 outline-none placeholder:text-gray-400"
                                 />
-
                                 <button
                                     type="submit"
                                     aria-label="Search products"
@@ -379,7 +392,6 @@ const Navbar = ({
                             </button>
                         )}
 
-                        {/* Orders */}
                         <button
                             type="button"
                             onClick={() => navigateTo("/my-orders")}
@@ -395,7 +407,7 @@ const Navbar = ({
                             type="button"
                             aria-label={`Wishlist, ${wishlistCount} items`}
                             onClick={() => navigateTo("/wishlist")}
-                            className="group relative hidden min-w-fit items-center lg:flex"
+                            className="relative hidden min-w-fit items-center lg:flex"
                         >
                             <HeartIcon />
                         </button>
@@ -405,7 +417,7 @@ const Navbar = ({
                             type="button"
                             aria-label={`Cart, ${cartCount} items`}
                             onClick={() => navigateTo("/cart")}
-                            className="group relative hidden min-w-fit items-center lg:flex"
+                            className="relative hidden min-w-fit items-center lg:flex"
                         >
                             <CartIcon />
                         </button>
@@ -493,29 +505,16 @@ const Navbar = ({
                         </button>
 
                         <nav className="flex items-center gap-6 px-5">
-                            <button
-                                type="button"
-                                onClick={goHome}
-                                className="whitespace-nowrap text-[13px] font-semibold text-white hover:text-[#E7C15F]"
-                            >
-                                Home
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => navigateTo("/my-orders")}
-                                className="whitespace-nowrap text-[13px] font-semibold text-white hover:text-[#E7C15F]"
-                            >
-                                My Orders
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => navigateTo("/contact")}
-                                className="whitespace-nowrap text-[13px] font-semibold text-white hover:text-[#E7C15F]"
-                            >
-                                Contact Us
-                            </button>
+                            {basicLinks.map((item) => (
+                                <button
+                                    key={item.label}
+                                    type="button"
+                                    onClick={item.action}
+                                    className="whitespace-nowrap text-[13px] font-semibold text-white hover:text-[#E7C15F]"
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
                         </nav>
 
                         <nav className="ml-auto flex min-w-0 items-center gap-6">
@@ -563,17 +562,7 @@ const Navbar = ({
                                 <span>›</span>
                             </button>
 
-                            {[
-                                { label: "Home", action: goHome },
-                                {
-                                    label: "My Orders",
-                                    action: () => navigateTo("/my-orders"),
-                                },
-                                {
-                                    label: "Contact Us",
-                                    action: () => navigateTo("/contact"),
-                                },
-                            ].map((item) => (
+                            {basicLinks.map((item) => (
                                 <button
                                     key={item.label}
                                     type="button"
@@ -630,12 +619,21 @@ const Navbar = ({
                                     </button>
                                 ))}
                             </div>
+
+                            {isLoggedIn && (
+                                <button
+                                    type="button"
+                                    onClick={openLogout}
+                                    className="mt-3 w-full rounded-lg border border-[#793037] py-3 text-left font-semibold text-[#E7C15F]"
+                                >
+                                    Logout
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
             </header>
 
-            {/* Login modal */}
             {loginModalOpen && (
                 <LoginModal
                     onClose={() => setLoginModalOpen(false)}
@@ -644,7 +642,6 @@ const Navbar = ({
                 />
             )}
 
-            {/* Register modal */}
             {registerModalOpen && (
                 <RegisterModal
                     onClose={() => setRegisterModalOpen(false)}
@@ -653,7 +650,6 @@ const Navbar = ({
                 />
             )}
 
-            {/* Logout modal */}
             {logoutModalOpen && (
                 <Logout
                     onClose={() => setLogoutModalOpen(false)}
