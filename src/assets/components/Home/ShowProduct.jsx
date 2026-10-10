@@ -31,15 +31,15 @@ function ShowProduct({
 
         return matchesCategory && matchesSearch;
     });
-    const handleBuyNow = (product) => {
-        navigate("/checkout", {
-            state: {
-                product,
-                quantity: 1,
-                buyNow: true,
-            },
-        });
-    };
+   // Buy Now - Navigate to Product Details
+const buyNow = (product) => {
+    navigate(`/product/${product.id}`, {
+        state: {
+            product,
+            buyNow: true,
+        },
+    });
+};
 
     return (
         <section
@@ -182,27 +182,14 @@ function ShowProduct({
     <CartAnime onAdd={() => addToCart?.(product)} />
   </div>
 
-  {/* Buy Now */}
-  <button
-    type="button"
-    onClick={() =>
-      navigate("/checkout", {
-        state: {
-          product,
-          quantity: 1,
-          buyNow: true,
-        },
-      })
-    }
-    className="flex h-9 min-w-0 items-center justify-center gap-1
-               rounded-lg bg-[#F0BE4F] px-1 text-[11px]
-               font-semibold text-[#331934] transition
-               hover:bg-[#e3ad35] active:scale-[0.98]
-               sm:text-xs"
-  >
-    <Zap size={14} className="shrink-0" />
-    <span className="truncate">Buy Now</span>
-  </button>
+   <button
+                                                        type="button"
+                                                        onClick={() => buyNow(product)}
+                                                        className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-[#E7C15F] px-2 py-2.5 text-[10px] font-bold uppercase tracking-wide text-[#50070D] transition hover:bg-[#D9AE43] sm:gap-2 sm:text-xs"
+                                                    >
+                                                        
+                                                        Buy Now
+                                                    </button>
 </div>
                                 </div>
                             );

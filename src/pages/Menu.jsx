@@ -89,13 +89,15 @@ export default function Menu({ wishlist = [], toggleWishlist, addToCart }) {
         return result;
     }, [activeCategory, searchTerm, sortBy]);
 
-    // Buy Now
-    const buyNow = (product) => {
-        if (addToCart(product)) {
-            navigate("/cart");
-        }
-    };
-
+  // Buy Now - Navigate to Product Details
+const buyNow = (product) => {
+    navigate(`/product/${product.id}`, {
+        state: {
+            product,
+            buyNow: true,
+        },
+    });
+};
     // Shared category list
     const CategoryList = ({ mobile = false }) => (
         <div className="space-y-1">
