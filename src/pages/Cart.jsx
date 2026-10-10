@@ -59,13 +59,21 @@ const Cart = ({ cart = [], setCart }) => {
       maximumFractionDigits: 2,
     })}`;
 
-  // Buy Now
-  const handleBuyNow = () => {
-    if (cart.length === 0) return;
+ 
+const handleBuyNow = () => {
+  if (cart.length === 0) return;
 
-    // Navigate to your checkout page
-    navigate("/checkout");
-  };
+  navigate("/checkout", {
+    state: {
+      cart: cart.map((item) => ({
+        ...item,
+        quantity: Number(item.quantity || 1),
+      })),
+      buyNow: false,
+    },
+  });
+};
+
 
   return (
 <div className="min-h-screen bg-[#fcf8f3] px-3 py-6 pb-48 sm:px-6 sm:py-8 sm:pb-48 lg:px-10 lg:pb-8">

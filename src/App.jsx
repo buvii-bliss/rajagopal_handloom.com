@@ -44,22 +44,60 @@ function App() {
         });
     };
 
-    // ================= CART =================
-    const addToCart = (product) => {
-        setCart((previous) => {
-            const exists = previous.some((item) => item.id === product.id);
+ 
+const addToCart = (newProduct) => {
+  setCart((prevCart) => {
+    const existingIndex = prevCart.findIndex(
+      (item) =>
+        String(item.id) === String(newProduct.id) &&
+        String(item.selectedColor || "Default") ===
+          String(newProduct.selectedColor || "Default") &&
+        String(item.selectedSize || "Free Size") ===
+          String(newProduct.selectedSize || "Free Size")
+    );
 
-            return exists
-                ? previous.map((item) =>
-                      item.id === product.id
-                          ? { ...item, quantity: (item.quantity || 1) + 1 }
-                          : item
-                  )
-                : [...previous, { ...product, quantity: 1 }];
-        });
+    if (existingIndex === -1) {
+      return [...prevCart, newProduct];
+    }
 
-        return true;
-    };
+    return prevCart.map((item, index) => {
+      if (index !== existingIndex) return item;
+
+      const quantity =
+        Number(item.quantity || 1) +
+        Number(newProduct.quantity || 1);
+
+      const originalPrice = Number(
+        newProduct.originalPrice ??
+        item.originalPrice ??
+        item.price ??
+        0
+      );
+
+      const discount =
+        quantity >= 300 ? 30 :
+        quantity >= 200 ? 25 :
+        quantity >= 100 ? 20 : 0;
+
+      const price = Math.round(
+        originalPrice * (1 - discount / 100)
+      );
+
+      return {
+        ...item,
+        ...newProduct,
+        quantity,
+        originalPrice,
+        price,
+        unitPrice: price,
+        discount,
+        totalPrice: price * quantity,
+        isBulkOrder: quantity >= 100,
+      };
+    });
+  });
+};
+
 
     // ================= LOGIN =================
     const handleLogin = (user) => {

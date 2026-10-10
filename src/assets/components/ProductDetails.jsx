@@ -5,9 +5,6 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import products from "../Data/Product";
 import SimilarProducts from "./Product/SimilarProducts";
 
-const GOLD = "#b58a3a";
-const MAROON = "#650b13";
-
 const bulkTiers = [
     { min: 1, max: 99, discount: 0, label: "Regular Price" },
     { min: 100, max: 199, discount: 20, label: "100+ Pieces" },
@@ -20,12 +17,16 @@ const formatPrice = (amount) =>
         style: "currency",
         currency: "INR",
         maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(Number(amount) || 0);
 
 const getCategoryType = (category = "", name = "") => {
     const value = `${category} ${name}`.toLowerCase();
 
-    if (/saree|sari|dhoti|mundu|veshti/.test(value)) {
+    if (
+        /\bsaree\b|\bsarees\b|\bsari\b|\nsaris\b|\bdhoti\b|\bdhotis\b|\bmundu\b|\bmundus\b|\bveshti\b|\bveshtis\b/.test(
+            value
+        )
+    ) {
         return "free";
     }
 
@@ -122,23 +123,24 @@ function ProductDetails({
     const [showSizeChart, setShowSizeChart] = useState(false);
     const [notice, setNotice] = useState("");
 
-    // Automatically select Free Size and reset size when product changes.
+    // Automatically select Free Size when the product changes.
     useEffect(() => {
         if (!product) {
             setSelectedSize("");
             return;
         }
 
-        if (getCategoryType(product.category, product.name) === "free") {
-            setSelectedSize("Free Size");
-        } else {
-            setSelectedSize("");
-        }
+        setSelectedSize(
+            getCategoryType(product.category, product.name) === "free"
+                ? "Free Size"
+                : ""
+        );
 
         setVariantIndex(0);
         setActiveMediaIndex(0);
         setQuantity(1);
         setNotice("");
+        setShowSizeChart(false);
     }, [product]);
 
     if (!product) {
@@ -174,24 +176,30 @@ function ProductDetails({
         (size) => size.name === effectiveSelectedSize
     );
 
-    const isSizeAvailable = selectedSizeData?.available ?? false;
+    const isSizeAvailable = isFreeSize
+        ? true
+        : selectedSizeData?.available ?? false;
 
     const originalPrice = Number(
         product.originalPrice ?? product.price ?? 0
     );
 
+    const safeQuantity = Math.max(
+        1,
+        Math.min(10000, Number(quantity) || 1)
+    );
+
     const currentTier =
         [...bulkTiers]
             .reverse()
-            .find((tier) => quantity >= tier.min) || bulkTiers[0];
+            .find((tier) => safeQuantity >= tier.min) || bulkTiers[0];
 
     const discountedPrice = Math.round(
         originalPrice * (1 - currentTier.discount / 100)
     );
 
-    const totalPrice = discountedPrice * quantity;
     const totalSavings =
-        (originalPrice - discountedPrice) * quantity;
+        (originalPrice - discountedPrice) * safeQuantity;
 
     const isWishlisted = Array.isArray(wishlist)
         ? wishlist.some(
@@ -226,23 +234,19 @@ function ProductDetails({
         setNotice("");
     };
 
-    // Reset to one piece at the regular price.
     const buySinglePiece = () => {
         setQuantity(1);
         setNotice("Quantity reset to 1 piece. Regular price applied.");
     };
 
     const handleOrder = (buyNow = false) => {
-        // Do not require manual size selection for Free Size products.
-        if (
-            (!isFreeSize && !selectedSize) ||
-            !isSizeAvailable
-        ) {
+        if (isFreeSize) {
+            setSelectedSize("Free Size");
+        } else if (!selectedSize || !isSizeAvailable) {
             setNotice("Please select an available size.");
             return;
         }
 
-        // Prevent an empty quantity from being used in checkout.
         const finalQuantity = Math.max(
             1,
             Math.min(10000, Number(quantity) || 1)
@@ -257,8 +261,6 @@ function ProductDetails({
         const finalUnitPrice = Math.round(
             originalPrice * (1 - finalTier.discount / 100)
         );
-
-        const finalTotalPrice = finalUnitPrice * finalQuantity;
 
         const selectedProduct = {
             ...product,
@@ -276,7 +278,7 @@ function ProductDetails({
             price: finalUnitPrice,
             unitPrice: finalUnitPrice,
             discount: finalTier.discount,
-            totalPrice: finalTotalPrice,
+            totalPrice: finalUnitPrice * finalQuantity,
             isBulkOrder: finalQuantity >= 100,
         };
 
@@ -316,7 +318,6 @@ function ProductDetails({
     return (
         <main className="min-h-screen bg-[#fffaf2] px-3 py-3 sm:px-5 sm:py-4">
             <div className="mx-auto max-w-7xl">
-                {/* Breadcrumb */}
                 <nav className="mb-3 flex items-center gap-2 overflow-hidden whitespace-nowrap text-xs text-gray-500">
                     <Link
                         to="/"
@@ -333,7 +334,6 @@ function ProductDetails({
                 </nav>
 
                 <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-8">
-                    {/* Product gallery */}
                     <section className="min-w-0">
                         <div className="grid grid-cols-[62px_minmax(0,1fr)] gap-3 sm:grid-cols-[76px_minmax(0,1fr)]">
                             <div className="flex max-h-[430px] flex-col gap-2 overflow-y-auto pr-1">
@@ -341,9 +341,7 @@ function ProductDetails({
                                     <button
                                         key={`${item.type}-${item.src}-${index}`}
                                         type="button"
-                                        onClick={() =>
-                                            setActiveMediaIndex(index)
-                                        }
+                                        onClick={() => setActiveMediaIndex(index)}
                                         aria-label={
                                             item.type === "video"
                                                 ? "Play product video"
@@ -421,7 +419,6 @@ function ProductDetails({
                         </div>
                     </section>
 
-                    {/* Product information */}
                     <section className="min-w-0 space-y-3">
                         <div>
                             <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9a7534]">
@@ -444,7 +441,6 @@ function ProductDetails({
                             )}
                         </div>
 
-                        {/* Pricing and bulk discounts */}
                         <div className="rounded-xl border border-[#ead9b9] bg-white p-3">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-2xl font-bold text-[#650b13]">
@@ -456,7 +452,6 @@ function ProductDetails({
                                         <span className="text-sm text-gray-400 line-through">
                                             {formatPrice(originalPrice)}
                                         </span>
-
                                         <span className="rounded bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">
                                             {currentTier.discount}% OFF
                                         </span>
@@ -478,13 +473,12 @@ function ProductDetails({
                                     : "Bulk discounts apply automatically from 100 pieces."}
                             </p>
 
-                            {/* Quick quantity options */}
                             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 <button
                                     type="button"
                                     onClick={buySinglePiece}
                                     className={`rounded-lg border p-2 text-left transition ${
-                                        quantity === 1
+                                        safeQuantity === 1
                                             ? "border-[#650b13] bg-[#650b13] text-white"
                                             : "border-[#eadfce] bg-[#fffaf2] text-[#52080f] hover:border-[#b58a3a]"
                                     }`}
@@ -524,7 +518,6 @@ function ProductDetails({
                             </div>
                         </div>
 
-                        {/* Color variants */}
                         {variants.length > 1 && (
                             <div>
                                 <div className="mb-2 flex items-center justify-between">
@@ -534,7 +527,6 @@ function ProductDetails({
                                             {activeVariant?.name}
                                         </span>
                                     </p>
-
                                     <span className="text-[10px] text-gray-500">
                                         {variants.length} options
                                     </span>
@@ -543,11 +535,7 @@ function ProductDetails({
                                 <div className="flex flex-wrap gap-2">
                                     {variants.map((variant, index) => (
                                         <button
-                                            key={
-                                                variant.id ??
-                                                variant.name ??
-                                                index
-                                            }
+                                            key={variant.id ?? variant.name ?? index}
                                             type="button"
                                             onClick={() => chooseVariant(index)}
                                             title={variant.name}
@@ -557,27 +545,20 @@ function ProductDetails({
                                                     : "border-[#e4d5c2] bg-white text-gray-700"
                                             }`}
                                         >
-                                            {(variant.images?.[0] ||
-                                                variant.image) && (
+                                            {(variant.images?.[0] || variant.image) && (
                                                 <img
-                                                    src={
-                                                        variant.images?.[0] ||
-                                                        variant.image
-                                                    }
+                                                    src={variant.images?.[0] || variant.image}
                                                     alt=""
                                                     className="h-6 w-6 rounded-full border border-[#eadfce] object-cover"
                                                 />
                                             )}
-
-                                            {variant.name ||
-                                                `Color ${index + 1}`}
+                                            {variant.name || `Color ${index + 1}`}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Size selection */}
                         <div>
                             <div className="mb-2 flex items-center justify-between gap-2">
                                 <p className="text-xs font-bold text-[#42070c]">
@@ -631,20 +612,18 @@ function ProductDetails({
                             )}
                         </div>
 
-                        {/* Quantity control */}
                         <div className="rounded-xl border border-[#eadfce] bg-white p-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-bold text-[#42070c]">
                                         Order quantity
                                     </p>
-
                                     <p className="mt-1 text-[10px] text-gray-500">
-                                        {quantity >= 300
+                                        {safeQuantity >= 300
                                             ? "30% bulk discount applied"
-                                            : quantity >= 200
+                                            : safeQuantity >= 200
                                               ? "25% bulk discount applied"
-                                              : quantity >= 100
+                                              : safeQuantity >= 100
                                                 ? "20% bulk discount applied"
                                                 : "Bulk discounts start at 100 pieces"}
                                     </p>
@@ -655,10 +634,7 @@ function ProductDetails({
                                         type="button"
                                         onClick={() =>
                                             updateQuantity(
-                                                Math.max(
-                                                    1,
-                                                    (Number(quantity) || 1) - 1
-                                                )
+                                                Math.max(1, safeQuantity - 1)
                                             )
                                         }
                                         className="h-9 w-9 text-lg text-[#650b13] hover:bg-[#fff5e6]"
@@ -691,7 +667,7 @@ function ProductDetails({
                                         type="button"
                                         onClick={() =>
                                             updateQuantity(
-                                                (Number(quantity) || 1) + 1
+                                                Math.min(10000, safeQuantity + 1)
                                             )
                                         }
                                         className="h-9 w-9 text-lg text-[#650b13] hover:bg-[#fff5e6]"
@@ -705,17 +681,11 @@ function ProductDetails({
                             <div className="mt-3 flex items-end justify-between border-t border-dashed border-[#e4d5c2] pt-3">
                                 <div>
                                     <p className="text-[11px] text-gray-500">
-                                        Total for {Number(quantity) || 1}{" "}
-                                        {(Number(quantity) || 1) === 1
-                                            ? "piece"
-                                            : "pieces"}
+                                        Total for {safeQuantity}{" "}
+                                        {safeQuantity === 1 ? "piece" : "pieces"}
                                     </p>
-
                                     <p className="text-xl font-bold text-[#650b13]">
-                                        {formatPrice(
-                                            discountedPrice *
-                                                (Number(quantity) || 1)
-                                        )}
+                                        {formatPrice(discountedPrice * safeQuantity)}
                                     </p>
                                 </div>
 
@@ -724,7 +694,6 @@ function ProductDetails({
                                         <p className="text-[10px] text-gray-500">
                                             Total savings
                                         </p>
-
                                         <p className="text-sm font-bold text-green-700">
                                             {formatPrice(totalSavings)}
                                         </p>
@@ -732,7 +701,7 @@ function ProductDetails({
                                 )}
                             </div>
 
-                            {quantity >= 100 && (
+                            {safeQuantity >= 100 && (
                                 <button
                                     type="button"
                                     onClick={buySinglePiece}
@@ -743,7 +712,6 @@ function ProductDetails({
                             )}
                         </div>
 
-                        {/* Actions */}
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
@@ -778,14 +746,12 @@ function ProductDetails({
                                     Quality checked
                                 </p>
                             </div>
-
                             <div>
                                 <span className="text-sm">↺</span>
                                 <p className="mt-1 text-[10px] text-gray-600">
                                     Easy support
                                 </p>
                             </div>
-
                             <div>
                                 <span className="text-sm">◆</span>
                                 <p className="mt-1 text-[10px] text-gray-600">
@@ -796,13 +762,11 @@ function ProductDetails({
                     </section>
                 </div>
 
-                {/* Similar products */}
                 <div className="mt-6 border-t border-[#e5d7c5] pt-5">
                     <SimilarProducts product={product} />
                 </div>
             </div>
 
-            {/* Size chart modal */}
             {showSizeChart && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3"
@@ -820,7 +784,6 @@ function ProductDetails({
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#9a7534]">
                                     Fit guide
                                 </p>
-
                                 <h2
                                     id="size-chart-title"
                                     className="text-xl font-bold text-[#52080f]"
@@ -867,8 +830,11 @@ function ProductDetails({
                                             key={row[0]}
                                             className="border-t border-[#f0e7db]"
                                         >
-                                            {row.map((value) => (
-                                                <td key={value} className="p-3">
+                                            {row.map((value, index) => (
+                                                <td
+                                                    key={`${row[0]}-${index}`}
+                                                    className="p-3"
+                                                >
                                                     {value}
                                                 </td>
                                             ))}
