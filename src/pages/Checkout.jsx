@@ -162,16 +162,17 @@ const orderTotal = cartItems.reduce(
   };
 
   const handlePaymentSuccess = (payment) => {
-    const order = {
-      orderId: `RH${Date.now().toString().slice(-8)}`,
-      customer,
-      items: cartItems,
-      subtotal,
-      shipping,
-      total,
-      payment,
-      createdAt: new Date().toISOString(),
-    };
+   const order = {
+    orderId: `RH${Date.now().toString().slice(-8)}`,
+    status: "Pending",
+    customer,
+    items: cartItems,
+    subtotal,
+    shipping,
+    total,
+    payment,
+    createdAt: new Date().toISOString(),
+};
 
     // Demo only: store the order locally in this browser.
     try {

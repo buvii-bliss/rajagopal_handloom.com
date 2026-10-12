@@ -259,8 +259,8 @@ const products = [
 
     {
         id: 8,
-        name: "Handloom Decorative Collection",
-        category: "Home Furnishings",
+        name: "Handloom Decorative Saree",
+        category: "Saree",
         price: 799,
         originalPrice: 999,
         rating: 4.6,
@@ -286,8 +286,8 @@ const products = [
 
     {
         id: 9,
-        name: "Traditional Handloom Bag",
-        category: "Bags & Accessories",
+        name: "Traditional Handloom Kurta",
+        category: "Kurti",
         price: 999,
         originalPrice: 1199,
         rating: 4.7,
