@@ -5,6 +5,7 @@ import Category from "../assets/components/Home/Category";
 import Sale from "../assets/components/Home/Sale";
 import Collection from "../assets/components/Home/Collection";
 import ShowProduct from "../assets/components/Home/ShowProduct";
+import Offer from "../assets/components/Home/Offer";
 
 function Home({
     selectedCategory,
@@ -32,8 +33,10 @@ function Home({
                 toggleWishlist={toggleWishlist}
                 addToCart={addToCart}
             />
+                        <Collection />
+                        <Offer />
+
             <Sale />
-            <Collection />
         </main>
     );
 }

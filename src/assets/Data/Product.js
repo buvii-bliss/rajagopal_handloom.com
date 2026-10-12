@@ -69,6 +69,38 @@ const products = [
         ],
     },
 
+     {
+        id: 18,
+        name: "Kanchipuram Silk Saree with Zari Border",
+        category: "Wedding",
+        price: 4999,
+        originalPrice: 5999,
+        rating: 4.8,
+        reviews: 124,
+        image: saree1,
+        sizes: freeSize,
+        bulkDiscounts,
+        keywords: "saree silk kanchipuram zari traditional women",
+
+        variants: [
+            {
+                id: "1-maroon",
+                name: "Maroon",
+                images: [saree1, saree2, saree],
+            },
+            {
+                id: "1-pink",
+                name: "Pink",
+                images: [saree2, saree1, saree],
+            },
+            {
+                id: "1-red",
+                name: "Red",
+                images: [saree, saree1, saree2],
+            },
+        ],
+    },
+
     {
         id: 2,
         name: "Cotton Saree with Traditional Border",

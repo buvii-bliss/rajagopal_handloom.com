@@ -29,14 +29,7 @@ function Category({ setSelectedCategory }) {
       name: "Dhoti & Mundu",
       image: dhotii,
     },
-    {
-      name: "New Arrivals",
-      image: saree,
-    },
-    {
-      name: "Offers",
-      image: saree2,
-    },
+   
     {
       name: "Handloom Cotton",
       image: dhoti,
