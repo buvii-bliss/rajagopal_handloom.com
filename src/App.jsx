@@ -173,6 +173,7 @@ const addToCart = (newProduct) => {
                             />
                         }
                     />
+<Route path="/search" element={<Search />} />
 
                     {/* Search Page */}
                     <Route
